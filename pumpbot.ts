@@ -26,9 +26,9 @@ const getProvider = () => {
   return new AnchorProvider(connection, wallet, { commitment: "finalized" });
 };
 
-const buyTokens = async (sdk: PumpFunSDK, testAccount: Keypair, mint: any) => {
+const buyTokens = async (sdk: PumpFunSDK, wallet: Keypair, mint: any) => {
   const buyResults = await sdk.buy(
-    testAccount,
+    wallet,
     mint.publicKey,
     BigInt(0.0001 * LAMPORTS_PER_SOL),
     SLIPPAGE_BASIS_POINTS,
@@ -39,7 +39,7 @@ const buyTokens = async (sdk: PumpFunSDK, testAccount: Keypair, mint: any) => {
   );
 
   if (buyResults.success) {
-    printSPLBalance(sdk.connection, mint.publicKey, testAccount.publicKey);
+    printSPLBalance(sdk.connection, mint.publicKey, wallet.publicKey);
     console.log(
       "Bonding curve after buy",
       await sdk.getBondingCurveAccount(mint.publicKey)
@@ -49,17 +49,17 @@ const buyTokens = async (sdk: PumpFunSDK, testAccount: Keypair, mint: any) => {
   }
 };
 
-const sellTokens = async (sdk: PumpFunSDK, testAccount: Keypair, mint: any) => {
+const sellTokens = async (sdk: PumpFunSDK, wallet: Keypair, mint: any) => {
   const currentSPLBalance = await getSPLBalance(
     sdk.connection,
     mint.publicKey,
-    testAccount.publicKey
+    wallet.publicKey
   );
   console.log("currentSPLBalance", currentSPLBalance);
 
   if (currentSPLBalance) {
     const sellResults = await sdk.sell(
-      testAccount,
+      wallet,
       mint.publicKey,
       BigInt(currentSPLBalance * Math.pow(10, DEFAULT_DECIMALS)),
       SLIPPAGE_BASIS_POINTS,
@@ -72,13 +72,13 @@ const sellTokens = async (sdk: PumpFunSDK, testAccount: Keypair, mint: any) => {
     if (sellResults.success) {
       await printSOLBalance(
         sdk.connection,
-        testAccount.publicKey,
+        wallet.publicKey,
         "Test Account keypair"
       );
       printSPLBalance(
         sdk.connection,
         mint.publicKey,
-        testAccount.publicKey,
+        wallet.publicKey,
         "After SPL sell all"
       );
       console.log(
