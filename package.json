@@ -1,7 +1,7 @@
 {
   "type": "module",
   "scripts": {
-    "start": "ts-node --esm pumpbot.ts"
+    "start": "tsx pumpbot.ts"
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.31.0",
@@ -17,6 +17,7 @@
   "devDependencies": {
     "@types/bs58": "^5.0.0",
     "ts-node": "^10.9.2",
+    "tsx": "^4.19.3",
     "typescript": "^5.8.3"
   }
 }
