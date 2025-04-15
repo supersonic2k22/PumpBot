@@ -17,7 +17,7 @@ const secretKey = bs58.decode(secretKeyBase58);
 const wallet = Keypair.fromSecretKey(secretKey);
 
 // RPC URL (Mainnet за замовчуванням, для Devnet змініть на https://api.devnet.solana.com)
-const rpc_url = "https://mainnet.helius-rpc.com/?api-key=d66cb9e0-a6e1-43dc-9d17-bbb40f20794d";
+const rpc_url = `https://mainnet.helius-rpc.com/?api-key=${process.env.HELIUS_API_KEY}`;
 
 // Створення провайдера
 const getProvider = () => {
