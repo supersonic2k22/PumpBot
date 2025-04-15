@@ -16,8 +16,8 @@ if (!secretKeyBase58) {
 const secretKey = bs58.decode(secretKeyBase58);
 const wallet = Keypair.fromSecretKey(secretKey);
 
-// RPC URL (Mainnet за замовчуванням, для Devnet змініть на https://api.devnet.solana.com)
-const rpc_url = `https://mainnet.helius-rpc.com/?api-key=${process.env.HELIUS_API_KEY}`;
+// RPC URL (Mainnet, для Devnet змініть на https://api.devnet.solana.com)
+const rpc_url = "https://mainnet.helius-rpc.com/?api-key=d66cb9e0-a6e1-43dc-9d17-bbb40f20794d";
 
 // Створення провайдера
 const getProvider = () => {
@@ -48,15 +48,14 @@ const createToken = async (connection: Connection, payer: Keypair) => {
     console.log("Creating new SPL token...");
     const mint = await createMint(
       connection,
-      payer, // Платник (гаманець)
-      payer.publicKey, // Власник токена
-      null, // Freeze authority (немає)
-      DEFAULT_DECIMALS // Кількість знаків після коми
+      payer,
+      payer.publicKey,
+      null,
+      DEFAULT_DECIMALS
     );
 
     console.log(`Token created: ${mint.toBase58()}`);
 
-    // Створюємо асоційований токен-акаунт (ATA) для гаманця
     const ata = await getOrCreateAssociatedTokenAccount(
       connection,
       payer,
@@ -75,12 +74,10 @@ const createToken = async (connection: Connection, payer: Keypair) => {
 // Функція для покупки токенів
 const buyTokens = async (sdk: PumpFunSDK, wallet: Keypair, contractAddress: PublicKey) => {
   try {
-    // Перевірка, чи contractAddress є коректним
     if (!contractAddress || !(contractAddress instanceof PublicKey)) {
       throw new Error("Invalid contract address");
     }
 
-    // Перевірка балансу
     const balance = await checkBalance(wallet.publicKey, sdk.connection);
     if (!balance || balance < 0.0025) {
       throw new Error("Insufficient balance. Minimum required: 0.0025 SOL (including ATA creation)");
@@ -90,8 +87,8 @@ const buyTokens = async (sdk: PumpFunSDK, wallet: Keypair, contractAddress: Publ
     const buyResults = await sdk.buy(
       wallet,
       contractAddress,
-      BigInt(0.00005 * LAMPORTS_PER_SOL), // 0.00005 SOL
-      100n, // Slippage
+      BigInt(0.00005 * LAMPORTS_PER_SOL),
+      100n,
       {
         unitLimit: 250000,
         unitPrice: 250000,
@@ -101,7 +98,13 @@ const buyTokens = async (sdk: PumpFunSDK, wallet: Keypair, contractAddress: Publ
     if (buyResults.success) {
       console.log("Buy successful!");
       await printSPLBalance(sdk.connection, contractAddress, wallet.publicKey);
-      console.log("Bonding curve after buy", await sdk.getBondingCurveAccount(contractAddress));
+      const bondingCurve = await sdk.getBondingCurveAccount(contractAddress);
+      console.log("Bonding curve after buy:", bondingCurve);
+      if (bondingCurve.complete) {
+        console.log("Bonding curve is complete. Token has moved to DEX (e.g., Raydium).");
+      } else {
+        console.log("Bonding curve is still active. You can continue trading on PumpFun.");
+      }
     } else {
       console.log("Buy failed");
     }
@@ -117,10 +120,17 @@ const sellTokens = async (sdk: PumpFunSDK, wallet: Keypair, contractAddress: Pub
       throw new Error("Invalid contract address");
     }
 
+    const bondingCurve = await sdk.getBondingCurveAccount(contractAddress);
+    if (bondingCurve.complete) {
+      console.log("Warning: Bonding curve is complete. Trading may be unavailable on PumpFun. Try DEX (e.g., Raydium).");
+      return;
+    }
+
     const currentSPLBalance = await getSPLBalance(sdk.connection, contractAddress, wallet.publicKey);
     console.log("Current SPL Balance:", currentSPLBalance);
 
     if (currentSPLBalance) {
+      console.log(`Attempting to sell tokens for contract: ${contractAddress.toBase58()}`);
       const sellResults = await sdk.sell(
         wallet,
         contractAddress,
@@ -133,9 +143,10 @@ const sellTokens = async (sdk: PumpFunSDK, wallet: Keypair, contractAddress: Pub
       );
 
       if (sellResults.success) {
+        console.log("Sell successful!");
         await printSOLBalance(sdk.connection, wallet.publicKey, "Test Account keypair");
         await printSPLBalance(sdk.connection, contractAddress, wallet.publicKey, "After SPL sell all");
-        console.log("Bonding curve after sell", await sdk.getBondingCurveAccount(contractAddress));
+        console.log("Bonding curve after sell:", bondingCurve);
       } else {
         console.log("Sell failed");
       }
@@ -154,7 +165,6 @@ const main = async () => {
     const provider = getProvider();
     const sdk = new PumpFunSDK(provider);
 
-    // Обробка аргументів командного рядка
     const args = process.argv.slice(2);
     const command = args[0];
 
@@ -178,7 +188,9 @@ const main = async () => {
         try {
           contractAddress = new PublicKey(args[1]);
         } catch (error) {
-          throw new Error("Invalid contract address format");
+          throw new Error(
+            "Error: Insufficient balance or not valid contract address."
+          );
         }
         await buyTokens(sdk, wallet, contractAddress);
         break;
@@ -190,7 +202,9 @@ const main = async () => {
         try {
           contractAddress = new PublicKey(args[1]);
         } catch (error) {
-          throw new Error("Invalid contract address format");
+          throw new Error(
+            "Error: Insufficient balance or not valid contract address."
+          );
         }
         await sellTokens(sdk, wallet, contractAddress);
         break;
