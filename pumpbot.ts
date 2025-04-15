@@ -16,7 +16,7 @@ if (!secretKeyBase58) {
 const secretKey = bs58.decode(secretKeyBase58);
 const wallet = Keypair.fromSecretKey(secretKey);
 
-// RPC URL для Devnet
+// RPC URL (Mainnet за замовчуванням, для Devnet змініть на https://api.devnet.solana.com)
 const rpc_url = "https://mainnet.helius-rpc.com/?api-key=d66cb9e0-a6e1-43dc-9d17-bbb40f20794d";
 
 // Створення провайдера
@@ -139,6 +139,8 @@ const sellTokens = async (sdk: PumpFunSDK, wallet: Keypair, contractAddress: Pub
       } else {
         console.log("Sell failed");
       }
+    } else {
+      console.log("No tokens to sell");
     }
   } catch (error) {
     console.error("Error selling tokens:", error);
@@ -149,22 +151,60 @@ const sellTokens = async (sdk: PumpFunSDK, wallet: Keypair, contractAddress: Pub
 const main = async () => {
   try {
     const connection = new Connection(rpc_url, { commitment: "finalized" });
-
-    // Обробка аргументів командного рядка
-    const args = process.argv.slice(2);
-    if (args[0] === "balance") {
-      await checkBalance(wallet.publicKey, connection);
-      return;
-    }
-
-    // Логіка для покупки токенів
     const provider = getProvider();
     const sdk = new PumpFunSDK(provider);
 
-    // Використовуємо створений токен для покупки
-    await buyTokens(sdk, wallet, contractAddress);
-    // Опціонально: виклик функції продажу
-    // await sellTokens(sdk, wallet, contractAddress);
+    // Обробка аргументів командного рядка
+    const args = process.argv.slice(2);
+    const command = args[0];
+
+    switch (command) {
+      case "balance":
+        await checkBalance(wallet.publicKey, connection);
+        break;
+
+      case "create-token":
+        const newToken = await createToken(connection, wallet);
+        if (newToken) {
+          console.log(`Use this token address for testing: ${newToken.toBase58()}`);
+        }
+        break;
+
+      case "buy":
+        if (!args[1]) {
+          throw new Error("Please provide a contract address: npx tsx pumpbot.ts buy <contract_address>");
+        }
+        let contractAddress: PublicKey;
+        try {
+          contractAddress = new PublicKey(args[1]);
+        } catch (error) {
+          throw new Error("Invalid contract address format");
+        }
+        await buyTokens(sdk, wallet, contractAddress);
+        break;
+
+      case "sell":
+        if (!args[1]) {
+          throw new Error("Please provide a contract address: npx tsx pumpbot.ts sell <contract_address>");
+        }
+        try {
+          contractAddress = new PublicKey(args[1]);
+        } catch (error) {
+          throw new Error("Invalid contract address format");
+        }
+        await sellTokens(sdk, wallet, contractAddress);
+        break;
+
+      default:
+        console.log(`
+Available commands:
+  npx tsx pumpbot.ts balance              - Check wallet balance
+  npx tsx pumpbot.ts create-token         - Create a new SPL token
+  npx tsx pumpbot.ts buy <contract_address> - Buy tokens for the specified contract
+  npx tsx pumpbot.ts sell <contract_address> - Sell tokens for the specified contract
+        `);
+        break;
+    }
   } catch (error) {
     console.error("Error in main:", error);
   }
