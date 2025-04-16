@@ -7,7 +7,10 @@ import bs58 from "bs58";
 import { createMint, getOrCreateAssociatedTokenAccount } from "@solana/spl-token";
 
 dotenv.config();
-
+// Налаштування slippage, unitlimit, unitprice з .env або значень за замовчуванням
+const slippage = process.env.SLIPPAGE ? BigInt(process.env.SLIPPAGE) : 10n; // 10% slippage за замовчуванням
+const unitlimit = parseInt(process.env.UNIT_LIMIT || '200000', 10); // 200000 compute units за замовчуванням
+const unitprice = parseInt(process.env.UNIT_PRICE || '100000', 10); // 100000 microLamports за замовчуванням
 // Налаштування гаманця
 const secretKeyBase58 = process.env.PRIVATE_KEY!;
 if (!secretKeyBase58) {
@@ -17,7 +20,7 @@ const secretKey = bs58.decode(secretKeyBase58);
 const wallet = Keypair.fromSecretKey(secretKey);
 
 // RPC URL (Mainnet, для Devnet змініть на https://api.devnet.solana.com)
-const rpc_url = "https://mainnet.helius-rpc.com/?api-key=d66cb9e0-a6e1-43dc-9d17-bbb40f20794d";
+const rpc_url = `https://mainnet.helius-rpc.com/?api-key=${process.env.HELIUS_API_KEY}`;
 
 // Створення провайдера
 const getProvider = () => {
@@ -88,10 +91,10 @@ const buyTokens = async (sdk: PumpFunSDK, wallet: Keypair, contractAddress: Publ
       wallet,
       contractAddress,
       BigInt(0.00005 * LAMPORTS_PER_SOL),
-      100n,
+      slippage,
       {
-        unitLimit: 250000,
-        unitPrice: 250000,
+        unitLimit: unitlimit,
+        unitPrice: unitprice,
       }
     );
 
@@ -135,10 +138,10 @@ const sellTokens = async (sdk: PumpFunSDK, wallet: Keypair, contractAddress: Pub
         wallet,
         contractAddress,
         BigInt(currentSPLBalance * Math.pow(10, DEFAULT_DECIMALS)),
-        100n,
+        slippage,
         {
-          unitLimit: 250000,
-          unitPrice: 250000,
+          unitLimit: unitlimit,
+          unitPrice: unitprice,
         }
       );
 
